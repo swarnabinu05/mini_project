@@ -1,0 +1,1 @@
+// Invoice upload component - placeholder

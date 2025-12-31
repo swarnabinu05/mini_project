@@ -1,0 +1,1 @@
+# Digital signature overlay - placeholder

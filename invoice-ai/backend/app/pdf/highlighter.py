@@ -1,0 +1,1 @@
+# PDF error highlighting - placeholder
