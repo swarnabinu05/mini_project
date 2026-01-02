@@ -7,6 +7,9 @@ class LineItem(BaseModel):
     quantity: float
     unit_price: float
     total: float
+    hs_code: Optional[str] = None  # Harmonized System code for product classification
+    tax_percentage: Optional[float] = None  # Per-item tax percentage
+    subtotal: Optional[float] = None  # Item subtotal before tax
 
 class InvoiceData(BaseModel):
     invoice_id: Optional[str] = None

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Signed Invoices - Download Center</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .invoice-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .download-btn {
+            background-color: #3498db;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            display: inline-block;
+            margin-top: 10px;
+        }
+        .download-btn:hover {
+            background-color: #2980b9;
+        }
+        .file-info {
+            color: #666;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        .no-files {
+            text-align: center;
+            color: #666;
+            padding: 40px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📄 Signed Invoice Download Center</h1>
+        <p>Click any download button below to get your signed PDF invoices</p>
+    </div>
+
+    <div id="invoices-container">
+        <p>Loading signed invoices...</p>
+    </div>
+
+    <script>
+        async function loadSignedInvoices() {
+            try {
+                const response = await fetch('/invoices/signed');
+                const data = await response.json();
+                
+                const container = document.getElementById('invoices-container');
+                
+                if (data.signed_invoices && data.signed_invoices.length > 0) {
+                    container.innerHTML = data.signed_invoices.map(invoice => `
+                        <div class="invoice-card">
+                            <h3>📋 ${invoice.filename}</h3>
+                            <div class="file-info">
+                                Size: ${invoice.size_kb} KB | Created: ${new Date(invoice.created * 1000).toLocaleString()}
+                            </div>
+                            <a href="${invoice.download_url}" class="download-btn" download>
+                                ⬇️ Download PDF
+                            </a>
+                        </div>
+                    `).join('');
+                } else {
+                    container.innerHTML = `
+                        <div class="no-files">
+                            <h2>📭 No Signed Invoices Found</h2>
+                            <p>Upload and process some invoices first to see signed PDFs here.</p>
+                            <a href="/docs" class="download-btn">Go to Upload Interface</a>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                document.getElementById('invoices-container').innerHTML = `
+                    <div class="no-files">
+                        <h2>❌ Error Loading Files</h2>
+                        <p>Could not load signed invoices. Please try again.</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Load invoices when page loads
+        loadSignedInvoices();
+        
+        // Refresh every 30 seconds
+        setInterval(loadSignedInvoices, 30000);
+    </script>
+</body>
+</html>
