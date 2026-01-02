@@ -1,6 +1,7 @@
 from typing import List
 from app.extraction.entities import InvoiceData
 from app.validation.country_rules import get_product_tax_rate, COUNTRY_TAX_RATES
+from app.validation.product_classifier import classify_product, get_tax_category_for_product
 
 
 def validate_tax(invoice: InvoiceData) -> List[str]:
@@ -89,6 +90,37 @@ def validate_product_tax_rates(invoice: InvoiceData, country: str) -> List[str]:
         
         print(f"DEBUG TAX: Checking product: '{description}' (HS: {hs_code})")
         print(f"DEBUG TAX: Item tax: {item_tax_pct}%, subtotal: {item_subtotal}, total: {item_total}")
+        
+        # Smart Product Classification - identify product category from description
+        # This allows "Mazda 6" to be recognized as a car even without explicit "car" keyword
+        classification = classify_product(description, hs_code)
+        if classification["classified"]:
+            print(f"DEBUG TAX: Product classified as '{classification['category']}' "
+                  f"(method: {classification['classification_method']}, confidence: {classification['confidence']})")
+            
+            # If no HS code provided, use the suggested one from classification
+            if not hs_code and classification.get("suggested_hs_code"):
+                hs_code = classification["suggested_hs_code"]
+                print(f"DEBUG TAX: Using suggested HS code: {hs_code}")
+        
+        # 0. Validate quantity * unit_price = subtotal
+        item_quantity = getattr(item, 'quantity', None)
+        item_unit_price = getattr(item, 'unit_price', None)
+        
+        if item_quantity is not None and item_unit_price is not None and item_subtotal is not None:
+            if item_quantity > 0 and item_unit_price > 0:
+                expected_subtotal = round(item_quantity * item_unit_price, 2)
+                actual_subtotal = round(item_subtotal, 2)
+                
+                print(f"DEBUG TAX: Expected subtotal for '{description}': {expected_subtotal} ({item_quantity} x ${item_unit_price})")
+                print(f"DEBUG TAX: Actual subtotal for '{description}': {actual_subtotal}")
+                
+                if abs(expected_subtotal - actual_subtotal) > 0.01:  # Allow 1 cent tolerance
+                    errors.append(
+                        f"SUBTOTAL ERROR: Product '{description}' subtotal calculation mismatch. "
+                        f"Expected ${expected_subtotal:.2f} ({item_quantity} x ${item_unit_price:.2f}), "
+                        f"but invoice shows ${actual_subtotal:.2f}"
+                    )
         
         # 1. Look up the correct tax rate for this product
         tax_info = get_product_tax_rate(country, hs_code, description)

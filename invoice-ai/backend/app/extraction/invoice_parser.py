@@ -14,7 +14,7 @@ def parse_invoice(text: str) -> Dict[str, Any]:
         A dictionary containing the extracted invoice data.
     """
     # Enhanced regex patterns for common invoice fields
-    invoice_id_pattern = re.compile(r'Invoice\s+(?:No|Number)[:.]?\s*([\w-]+)', re.IGNORECASE)
+    invoice_id_pattern = re.compile(r'Invoice\s+(?:No|Number|ID)[:.]?\s*([\w-]+)', re.IGNORECASE)
     date_pattern = re.compile(r'(?:Invoice\s+)?Date[:.]?\s*(\d{1,2}[-/]\d{1,2}[-/]\d{4})', re.IGNORECASE)
     due_date_pattern = re.compile(r'Due\s+Date[:.]?\s*(\d{1,2}[-/]\d{1,2}[-/]\d{4})', re.IGNORECASE)
     total_pattern = re.compile(r'(?:Grand\s+)?Total[:.]?\s*\$?([\d,]+\.?\d{0,2})', re.IGNORECASE)
@@ -69,16 +69,19 @@ def parse_invoice(text: str) -> Dict[str, Any]:
         tax_match = re.search(r'(\d+(?:\.\d+)?)\s*%', line)
         item_tax_pct = float(tax_match.group(1)) if tax_match else None
         
+        # Extract quantity with unit (e.g., "500 MT", "5 Units", "200 MT")
+        qty_match = re.search(r'(\d+(?:,\d+)?)\s*(?:MT|Units?|Pcs?|Kg|Tons?|Boxes?|Cartons?)?', line[hs_match.end():], re.IGNORECASE)
+        item_quantity = float(qty_match.group(1).replace(',', '')) if qty_match else 1.0
+        
         # Extract all numbers from the line (after HS code)
         after_hs = line[hs_match.end():]
         numbers = re.findall(r'([\d,]+\.?\d*)', after_hs)
-        numbers = [float(n.replace(',', '')) for n in numbers if n and '.' in n or float(n.replace(',', '')) > 0]
+        numbers = [float(n.replace(',', '')) for n in numbers if n and (('.' in n) or float(n.replace(',', '')) > 0)]
         
         print(f"DEBUG PARSER: Numbers found after HS code: {numbers}")
+        print(f"DEBUG PARSER: Extracted quantity: {item_quantity}")
         
-        # Expected order: Quantity, Unit Price, Tax%, Subtotal, Total
-        # But tax% is already extracted, so remaining numbers are: Quantity(int), UnitPrice, Subtotal, Total
-        item_quantity = 1.0
+        # Expected order in numbers: Quantity, Unit Price, Tax%, Subtotal, Total
         item_unit_price = 0.0
         item_subtotal = 0.0
         item_total = 0.0
@@ -87,15 +90,19 @@ def parse_invoice(text: str) -> Dict[str, Any]:
         if item_tax_pct and item_tax_pct in numbers:
             numbers = [n for n in numbers if n != item_tax_pct]
         
+        # Filter out the quantity value from numbers if present (it's already extracted)
+        if item_quantity in numbers:
+            numbers.remove(item_quantity)
+        
+        print(f"DEBUG PARSER: Numbers after filtering qty and tax: {numbers}")
+        
         # Parse numbers based on position and value
-        # Last number is Total, second-to-last is Subtotal
+        # Last number is Total, second-to-last is Subtotal, third-to-last is Unit Price
         if len(numbers) >= 2:
             item_total = numbers[-1]
             item_subtotal = numbers[-2]
             if len(numbers) >= 3:
                 item_unit_price = numbers[-3]
-            if len(numbers) >= 4:
-                item_quantity = numbers[-4]
         elif len(numbers) == 1:
             item_total = numbers[0]
         
