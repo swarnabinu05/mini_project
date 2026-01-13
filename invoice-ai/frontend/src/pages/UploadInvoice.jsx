@@ -43,9 +43,30 @@ function UploadInvoice() {
       const response = await uploadInvoice(invoiceFile, certificateFile, country);
       setResult(response);
     } catch (error) {
+      console.error('Upload error:', error);
+      console.error('Error response:', error.response?.data);
+      
+      let errorMessage = 'Upload failed';
+      let errorDetails = null;
+      
+      if (error.response?.data) {
+        if (typeof error.response.data === 'string') {
+          errorMessage = error.response.data;
+        } else if (error.response.data.detail) {
+          errorMessage = error.response.data.detail;
+        } else if (error.response.data.message) {
+          errorMessage = error.response.data.message;
+        }
+        errorDetails = error.response.data;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       setResult({
         status: 'error',
-        message: error.response?.data?.detail || error.message || 'Upload failed'
+        message: errorMessage,
+        error_details: errorDetails,
+        full_error: error
       });
     } finally {
       setLoading(false);
@@ -217,6 +238,26 @@ function UploadInvoice() {
                       </li>
                     ))}
                   </ul>
+                </div>
+              )}
+
+              {/* Error Message */}
+              {result.status === 'error' && result.message && (
+                <div className="mb-4">
+                  <h3 className="font-medium text-red-800 mb-2">Error Details:</h3>
+                  <div className="text-sm text-red-600 bg-red-50 p-3 rounded">
+                    <p className="font-medium mb-2">{result.message}</p>
+                    {result.error_details && (
+                      <details className="mt-2">
+                        <summary className="cursor-pointer text-red-500 hover:text-red-700">
+                          Show technical details
+                        </summary>
+                        <pre className="mt-2 text-xs bg-red-100 p-2 rounded overflow-auto">
+                          {JSON.stringify(result.error_details, null, 2)}
+                        </pre>
+                      </details>
+                    )}
+                  </div>
                 </div>
               )}
 
